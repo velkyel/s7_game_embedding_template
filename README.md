@@ -1,0 +1,1 @@
+# s7_game_embedding_template
