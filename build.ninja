@@ -1,0 +1,28 @@
+
+builddir = .build
+cxxflags = -Wall -Wextra -g -fno-rtti -O2 -fno-exceptions -Wno-sequence-point -DHAVE_COMPLEX_TRIG=0 -DHAVE_COMPLEX_NUMBERS=0 -DDISABLE_DEPRECATED -DWITH_C_LOADER=0
+cflags = -Is7
+ldflags = -ldl
+#-lGL -lX11 -lXrandr -lpthread -ldl -lXxf86vm -lGLU libfmod.so.11
+
+rule cxx
+     depfile = $out.d
+     command = g++ -MMD -MF $out.d $cxxflags -c $in -o $out
+     description = CC $out
+
+rule c
+     depfile = $out.d
+     command = gcc -MMD -MF $out.d $cflags -c $in -o $out
+     description = CC $out
+
+rule link
+     command = g++ -o $out $in $ldflags
+     description = LINK $out
+
+build $builddir/main.o: cxx main.cc
+build $builddir/misc.o: cxx misc.cc
+build $builddir/s7/s7.o: c s7/s7.c
+
+build test: link $builddir/main.o $builddir/misc.o $builddir/s7/s7.o
+
+default test
