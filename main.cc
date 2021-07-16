@@ -111,14 +111,6 @@ static bool equal_vec2(void* val1, void* val2)
   return val1 == val2;
 }
 
-// s7_pointer make_vec2(s7_scheme* sc, const cpVect& v)
-// {
-//   Vec2* o = vec2_pool->allocate();
-//   o->x = v.x;
-//   o->y = v.y;
-//   return s7_make_c_object(sc, vec2_type_tag, (void*)o);
-// }
-
 static s7_pointer make_vec2(s7_scheme* sc, s7_pointer args)
 {
   Vec2* o = vec2_pool->allocate();
@@ -311,6 +303,85 @@ static void init_s7()
   load_script(s7, "main.scm");
 }
 
+static void listen()
+{
+  if (sts_net_check_socket_set(&set, 0.0f) < 0) {
+    panic(sts_net_get_last_error());
+  }
+  if (server.ready) {
+    for (int i = 0; i < STS_NET_SET_SOCKETS; i++) {
+      if (clients[i].fd == INVALID_SOCKET) {
+        if (sts_net_accept_socket(&server, &clients[i]) < 0) {
+          panic(sts_net_get_last_error());
+        }
+        if (sts_net_add_socket_to_set(&clients[i], &set) < 0) {
+          panic(sts_net_get_last_error());
+        }
+        puts("client connected.");
+        std::string res = "> ";
+        if (sts_net_send(&clients[i], res.c_str(), res.size()) < 0) {
+          panic(sts_net_get_last_error());
+        }
+        break;
+      }
+    }
+  }
+  for (int i = 0; i < STS_NET_SET_SOCKETS; i++) {
+    if (clients[i].ready) {
+      i32 bytes = 0;
+      char buffer[1024];
+      std::string message;
+      do {
+        bytes = sts_net_recv(&clients[i], buffer, sizeof(buffer));
+        if (bytes > 0) {
+          message += std::string(buffer, bytes);
+          if (sts_net_check_socket_set(&set, 0.0f) < 0) {
+            panic(sts_net_get_last_error());
+          }
+        }
+      } while (bytes > 0 && clients[i].ready);
+      if (bytes <= 0) {
+        if (sts_net_remove_socket_from_set(&clients[i], &set) < 0) {
+          panic(sts_net_get_last_error());
+        }
+        sts_net_close_socket(&clients[i]);
+        puts("client disconnected.");
+        break;
+      }
+      if (!message.empty()) {
+        std::string res;
+        if (message != "\n") {
+          s7_int gc_loc = -1;
+          s7_pointer old_port = s7_set_current_error_port(s7, s7_open_output_string(s7));
+          if (old_port != s7_nil(s7)) {
+            gc_loc = s7_gc_protect(s7, old_port);
+          }
+          s7_pointer val = s7_eval_c_string(s7, message.c_str());
+          const char* err = s7_get_output_string(s7, s7_current_error_port(s7));
+          if ((err) && (*err)) {
+            res += err;
+          }
+          s7_close_output_port(s7, s7_current_error_port(s7));
+          s7_set_current_error_port(s7, old_port);
+          if (gc_loc != -1) {
+            s7_gc_unprotect_at(s7, gc_loc);
+          }
+          if (res.empty()) {    // no error
+            char* tmp = s7_object_to_c_string(s7, val);
+            res += tmp;
+            free(tmp);
+          }
+          res += "\n";
+        }
+        res += "> ";
+        if (sts_net_send(&clients[i], res.c_str(), res.size()) < 0) {
+          panic(sts_net_get_last_error());
+        }
+      }
+    }
+  }
+}
+
 int main()
 {
   for (int i = 0; i < STS_NET_SET_SOCKETS; i++) {
@@ -331,85 +402,12 @@ int main()
   int frame_counter = 0;
 
   while (1) {    // window_update()
-    if (sts_net_check_socket_set(&set, 0.0f) < 0) {
-      panic(sts_net_get_last_error());
-    }
-    if (server.ready) {
-      for (int i = 0; i < STS_NET_SET_SOCKETS; i++) {
-        if (clients[i].fd == INVALID_SOCKET) {
-          if (sts_net_accept_socket(&server, &clients[i]) < 0) {
-            panic(sts_net_get_last_error());
-          }
-          if (sts_net_add_socket_to_set(&clients[i], &set) < 0) {
-            panic(sts_net_get_last_error());
-          }
-          puts("client connected.");
-          std::string res = "> ";
-          if (sts_net_send(&clients[i], res.c_str(), res.size()) < 0) {
-            panic(sts_net_get_last_error());
-          }
-          break;
-        }
-      }
-    }
-    for (int i = 0; i < STS_NET_SET_SOCKETS; i++) {
-      if (clients[i].ready) {
-        i32 bytes = 0;
-        char buffer[1024];
-        std::string message;
-        do {
-          bytes = sts_net_recv(&clients[i], buffer, sizeof(buffer));
-          if (bytes > 0) {
-            message += std::string(buffer, bytes);
-            if (sts_net_check_socket_set(&set, 0.0f) < 0) {
-              panic(sts_net_get_last_error());
-            }
-          }
-        } while (bytes > 0 && clients[i].ready);
-        if (bytes <= 0) {
-          if (sts_net_remove_socket_from_set(&clients[i], &set) < 0) {
-            panic(sts_net_get_last_error());
-          }
-          sts_net_close_socket(&clients[i]);
-          puts("client disconnected.");
-          break;
-        }
-        if (!message.empty()) {
-          std::string res;
-          if (message != "\n") {
-            s7_int gc_loc = -1;
-            s7_pointer old_port =
-              s7_set_current_error_port(s7, s7_open_output_string(s7));
-            if (old_port != s7_nil(s7)) {
-              gc_loc = s7_gc_protect(s7, old_port);
-            }
-            s7_pointer val = s7_eval_c_string(s7, message.c_str());
-            const char* err = s7_get_output_string(s7, s7_current_error_port(s7));
-            if ((err) && (*err)) {
-              res += err;
-            }
-            s7_close_output_port(s7, s7_current_error_port(s7));
-            s7_set_current_error_port(s7, old_port);
-            if (gc_loc != -1) {
-              s7_gc_unprotect_at(s7, gc_loc);
-            }
-            if (res.empty()) {    // no error
-              char* tmp = s7_object_to_c_string(s7, val);
-              res += tmp;
-              free(tmp);
-            }
-            res += "\n";
-          }
-          res += "> ";
-          if (sts_net_send(&clients[i], res.c_str(), res.size()) < 0) {
-            panic(sts_net_get_last_error());
-          }
-        }
-      }
-    }
 
-    // setup rendering
+    listen();
 
+    // setup rendering...
+
+    // call scheme frame-entry (main.scm):
     s7_pointer frame_entry = s7_name_to_value(s7, "frame-entry");
     if (frame_entry == s7_undefined(s7)) {
       fprintf(stderr, "frame-entry function not found.\n");
