@@ -71,8 +71,8 @@ static s7_pointer parse_args(s7_scheme* sc, const char* caller, s7_pointer args,
       break;
     case 'v':
       if (is_vec2(arg)) {
-        Vec2* tmp = va_arg(va, Vec2*);
-        *tmp = *(Vec2*)s7_c_object_value(arg);
+        Vec2** tmp = va_arg(va, Vec2**);
+        *tmp = (Vec2*)s7_c_object_value(arg);
       } else {
         retval = s7_wrong_type_arg_error(sc, caller, argi + 1, arg, "vec2");
       }
@@ -92,9 +92,12 @@ static s7_pointer parse_args(s7_scheme* sc, const char* caller, s7_pointer args,
 
 static s7_pointer vec2_to_string(s7_scheme* sc, s7_pointer args)
 {
-  Vec2* o = (Vec2*)s7_c_object_value(s7_car(args));
+  Vec2* v;
+  if (auto err = parse_args(sc, "vec2 to string", args, "v", &v)) {
+    return err;
+  }
   char buf[256];
-  snprintf(buf, sizeof(buf), "<vec2 %.4f %.4f>", o->x, o->y);
+  snprintf(buf, sizeof(buf), "<vec2 %.4f %.4f>", v->x, v->y);
   return s7_make_string(sc, buf);
 }
 
@@ -126,30 +129,42 @@ static s7_pointer vec2p(s7_scheme* sc, s7_pointer args)
 
 static s7_pointer vec2_x(s7_scheme* sc, s7_pointer args)
 {
-  Vec2* o = (Vec2*)s7_c_object_value(s7_car(args));
-  return s7_make_real(sc, o->x);
+  Vec2* v;
+  if (auto err = parse_args(sc, "vec2-x", args, "v", &v)) {
+    return err;
+  }
+  return s7_make_real(sc, v->x);
 }
 
 static s7_pointer set_vec2_x(s7_scheme* sc, s7_pointer args)
 {
-  (void)sc;
-  Vec2* o = (Vec2*)s7_c_object_value(s7_car(args));
-  o->x = s7_real(s7_cadr(args));
-  return s7_cadr(args);
+  Vec2* v;
+  f32 f;
+  if (auto err = parse_args(sc, "vec2-x", args, "vf", &v, &f)) {
+    return err;
+  }
+  v->x = f;
+  return s7_undefined(sc);
 }
 
 static s7_pointer vec2_y(s7_scheme* sc, s7_pointer args)
 {
-  Vec2* o = (Vec2*)s7_c_object_value(s7_car(args));
-  return s7_make_real(sc, o->y);
+  Vec2* v;
+  if (auto err = parse_args(sc, "vec2-y", args, "v", &v)) {
+    return err;
+  }
+  return s7_make_real(sc, v->y);
 }
 
 static s7_pointer set_vec2_y(s7_scheme* sc, s7_pointer args)
 {
-  (void)sc;
-  Vec2* o = (Vec2*)s7_c_object_value(s7_car(args));
-  o->y = s7_real(s7_cadr(args));
-  return s7_cadr(args);
+  Vec2* v;
+  f32 f;
+  if (auto err = parse_args(sc, "vec2-y", args, "vf", &v, &f)) {
+    return err;
+  }
+  v->y = f;
+  return s7_undefined(sc);
 }
 
 static s7_pointer old_add;
@@ -396,7 +411,7 @@ int main()
   if (sts_net_add_socket_to_set(&server, &set) < 0) {
     panic(sts_net_get_last_error());
   }
-  printf("listening on 192.0.0.1...\n");
+  printf("listening on localhost...\n");
   init_s7();
 
   int frame_counter = 0;
