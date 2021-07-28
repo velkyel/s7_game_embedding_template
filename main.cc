@@ -305,7 +305,7 @@ static void init_s7()
   s7_define_function(s7, "-", custom_sub, 0, 0, true, 0);
   old_mult = s7_name_to_value(s7, "*");
   s7_define_function(s7, "*", custom_mult, 0, 0, true, 0);
-  old_mult = s7_name_to_value(s7, "/");
+  old_div = s7_name_to_value(s7, "/");
   s7_define_function(s7, "/", custom_div, 0, 0, true, 0);
 
   s7_define_function(s7, "ease-linear", ease_linear, 1, 0, false, 0);
