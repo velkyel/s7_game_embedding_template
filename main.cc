@@ -366,21 +366,38 @@ static void listen()
       if (!message.empty()) {
         std::string res;
         if (message != "\n") {
-          s7_int gc_loc = -1;
-          s7_pointer old_port = s7_set_current_error_port(s7, s7_open_output_string(s7));
-          if (old_port != s7_nil(s7)) {
-            gc_loc = s7_gc_protect(s7, old_port);
+          s7_int gc_err_loc = -1;
+          s7_pointer old_err_port = s7_set_current_error_port(s7, s7_open_output_string(s7));
+          if (old_err_port != s7_nil(s7)) {
+            gc_err_loc = s7_gc_protect(s7, old_err_port);
           }
+          s7_int gc_out_loc = -1;
+          s7_pointer old_out_port = s7_set_current_output_port(s7, s7_open_output_string(s7));
+          if (old_out_port != s7_nil(s7)) {
+            gc_out_loc = s7_gc_protect(s7, old_out_port);
+          }
+
           s7_pointer val = s7_eval_c_string(s7, message.c_str());
+          const char* out = s7_get_output_string(s7, s7_current_output_port(s7));
+          if ((out) && (*out)) {
+            res += out;
+          }
           const char* err = s7_get_output_string(s7, s7_current_error_port(s7));
           if ((err) && (*err)) {
             res += err;
           }
+
           s7_close_output_port(s7, s7_current_error_port(s7));
-          s7_set_current_error_port(s7, old_port);
-          if (gc_loc != -1) {
-            s7_gc_unprotect_at(s7, gc_loc);
+          s7_set_current_error_port(s7, old_err_port);
+          if (gc_err_loc != -1) {
+            s7_gc_unprotect_at(s7, gc_err_loc);
           }
+          s7_close_output_port(s7, s7_current_output_port(s7));
+          s7_set_current_output_port(s7, old_out_port);
+          if (gc_out_loc != -1) {
+            s7_gc_unprotect_at(s7, gc_out_loc);
+          }
+
           if (res.empty()) {    // no error
             char* tmp = s7_object_to_c_string(s7, val);
             res += tmp;
