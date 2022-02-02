@@ -114,7 +114,7 @@ static bool equal_vec2(void* val1, void* val2)
   return val1 == val2;
 }
 
-static s7_pointer make_vec2(s7_scheme* sc, s7_pointer args)
+static s7_pointer vec2(s7_scheme* sc, s7_pointer args)
 {
   Vec2* o = vec2_pool->allocate();
   o->x = s7_real(s7_car(args));
@@ -167,61 +167,54 @@ static s7_pointer set_vec2_y(s7_scheme* sc, s7_pointer args)
   return s7_undefined(sc);
 }
 
-static s7_pointer old_add;
-static s7_pointer old_sub;
-static s7_pointer old_mult;
-static s7_pointer old_div;
-
-static s7_pointer custom_add(s7_scheme* sc, s7_pointer args)
+static s7_pointer vec2_plus(s7_scheme* sc, s7_pointer args)
 {
-  if (s7_is_pair(args) && is_vec2(s7_car(args)) && is_vec2(s7_cadr(args))) {
-    Vec2* a = (Vec2*)s7_c_object_value(s7_car(args));
-    Vec2* b = (Vec2*)s7_c_object_value(s7_cadr(args));
-    Vec2* o = vec2_pool->allocate();
-    o->x = a->x + b->x;
-    o->y = a->y + b->y;
-    return s7_make_c_object(sc, vec2_type_tag, (void*)o);
+  Vec2 *a, *b;
+  if (auto err = parse_args(sc, "vec2+", args, "vv", &a, &b)) {
+    return err;
   }
-  return s7_apply_function(sc, old_add, args);
+  Vec2* res = vec2_pool->allocate();
+  res->x = a->x + b->x;
+  res->y = a->y + b->y;
+  return s7_make_c_object(sc, vec2_type_tag, (void*)res);
 }
 
-static s7_pointer custom_sub(s7_scheme* sc, s7_pointer args)
+static s7_pointer vec2_minus(s7_scheme* sc, s7_pointer args)
 {
-  if (s7_is_pair(args) && is_vec2(s7_car(args)) && is_vec2(s7_cadr(args))) {
-    Vec2* a = (Vec2*)s7_c_object_value(s7_car(args));
-    Vec2* b = (Vec2*)s7_c_object_value(s7_cadr(args));
-    Vec2* o = vec2_pool->allocate();
-    o->x = a->x - b->x;
-    o->y = a->y - b->y;
-    return s7_make_c_object(sc, vec2_type_tag, (void*)o);
+  Vec2 *a, *b;
+  if (auto err = parse_args(sc, "vec2-", args, "vv", &a, &b)) {
+    return err;
   }
-  return s7_apply_function(sc, old_sub, args);
+  Vec2* res = vec2_pool->allocate();
+  res->x = a->x - b->x;
+  res->y = a->y - b->y;
+  return s7_make_c_object(sc, vec2_type_tag, (void*)res);
 }
 
-static s7_pointer custom_mult(s7_scheme* sc, s7_pointer args)
+static s7_pointer vec2_mult(s7_scheme* sc, s7_pointer args)
 {
-  if (s7_is_pair(args) && is_vec2(s7_car(args)) && s7_is_number(s7_cadr(args))) {
-    Vec2* a = (Vec2*)s7_c_object_value(s7_car(args));
-    f32 s = s7_real(s7_cadr(args));
-    Vec2* o = vec2_pool->allocate();
-    o->x = a->x * s;
-    o->y = a->y * s;
-    return s7_make_c_object(sc, vec2_type_tag, (void*)o);
+  Vec2* a;
+  f32 s;
+  if (auto err = parse_args(sc, "vec2*", args, "vf", &a, &s)) {
+    return err;
   }
-  return s7_apply_function(sc, old_mult, args);
+  Vec2* res = vec2_pool->allocate();
+  res->x = a->x * s;
+  res->y = a->y * s;
+  return s7_make_c_object(sc, vec2_type_tag, (void*)res);
 }
 
-static s7_pointer custom_div(s7_scheme* sc, s7_pointer args)
+static s7_pointer vec2_div(s7_scheme* sc, s7_pointer args)
 {
-  if (s7_is_pair(args) && is_vec2(s7_car(args)) && s7_is_number(s7_cadr(args))) {
-    Vec2* a = (Vec2*)s7_c_object_value(s7_car(args));
-    f32 s = s7_real(s7_cadr(args));
-    Vec2* o = vec2_pool->allocate();
-    o->x = a->x / s;
-    o->y = a->y / s;
-    return s7_make_c_object(sc, vec2_type_tag, (void*)o);
+  Vec2* a;
+  f32 s;
+  if (auto err = parse_args(sc, "vec2/", args, "vf", &a, &s)) {
+    return err;
   }
-  return s7_apply_function(sc, old_div, args);
+  Vec2* res = vec2_pool->allocate();
+  res->x = a->x / s;
+  res->y = a->y / s;
+  return s7_make_c_object(sc, vec2_type_tag, (void*)res);
 }
 
 static s7_pointer ease_linear(s7_scheme* sc, s7_pointer args)
@@ -292,21 +285,16 @@ static void init_s7()
   s7_c_type_set_equal(s7, vec2_type_tag, equal_vec2);
   s7_c_type_set_to_string(s7, vec2_type_tag, vec2_to_string);
 
-  s7_define_function(s7, "make-vec2", make_vec2, 2, 0, false, 0);
+  s7_define_function(s7, "vec2", vec2, 2, 0, false, 0);
   s7_define_function(s7, "vec2?", vec2p, 1, 0, false, 0);
   s7_define_variable(s7, "vec2-x",
                      s7_dilambda(s7, "vec2-x", vec2_x, 1, 0, set_vec2_x, 2, 0, 0));
   s7_define_variable(s7, "vec2-y",
                      s7_dilambda(s7, "vec2-y", vec2_y, 1, 0, set_vec2_y, 2, 0, 0));
-
-  old_add = s7_name_to_value(s7, "+");
-  s7_define_function(s7, "+", custom_add, 0, 0, true, 0);
-  old_sub = s7_name_to_value(s7, "-");
-  s7_define_function(s7, "-", custom_sub, 0, 0, true, 0);
-  old_mult = s7_name_to_value(s7, "*");
-  s7_define_function(s7, "*", custom_mult, 0, 0, true, 0);
-  old_div = s7_name_to_value(s7, "/");
-  s7_define_function(s7, "/", custom_div, 0, 0, true, 0);
+  s7_define_function(s7, "vec2+", vec2_plus, 2, 0, false, 0);
+  s7_define_function(s7, "vec2-", vec2_minus, 2, 0, false, 0);
+  s7_define_function(s7, "vec2*", vec2_mult, 2, 0, false, 0);
+  s7_define_function(s7, "vec2/", vec2_div, 2, 0, false, 0);
 
   s7_define_function(s7, "ease-linear", ease_linear, 1, 0, false, 0);
   s7_define_function(s7, "ease-cubic-in", ease_cubic_in, 1, 0, false, 0);
