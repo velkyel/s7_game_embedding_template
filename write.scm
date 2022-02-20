@@ -2,13 +2,13 @@
 
 ;;; -------------------------------- pretty-print --------------------------------
 
-(define pretty-print
+(define pretty-print  ; (lambda* (obj (port (current-output-port)) (column 0))
 
   (let ((*pretty-print-length* 100)
 	(*pretty-print-spacing* 2)
 	(*pretty-print-float-format* "~,4F")
 	(*pretty-print-left-margin* 0)
-	(*pretty-print-cycles* #t))
+	(*pretty-print-cycles* #t)) ; if this is #f, you're guaranteeing that there won't be any circular structures
 
     (define pretty-print-1
       (letrec ((messy-number (lambda (z)
@@ -27,8 +27,13 @@
 	       (any-keyword? (lambda (lst)
 			       (and (pair? lst)
 				    (or (keyword? (car lst))
-					(any-keyword? (cdr lst)))))))
-	
+					(any-keyword? (cdr lst))))))
+
+	       (any-let-or-hash-table? (lambda (sequence)
+					 (and (pair? sequence)
+					      (or (let? (car sequence))
+						  (hash-table? (car sequence))
+						  (any-let-or-hash-table? (cdr sequence)))))))
 	(let ((newlines 0))
 	  
 	  (define (spaces port n) 
@@ -43,14 +48,13 @@
 		(if (not (eq? p lst))
 		    (spaces port col))
 		(let ((len (length (object->string obj))))
-		  (if (and (keyword? obj)
-			   (pair? (cdr p)))
-		      (begin
-			(write obj port)
-			(write-char #\space port)
-			(set! added (+ 1 len))
-			(set! p (cdr p))
-			(set! obj (car p)))) ; pair? cdr p above
+		  (when (and (keyword? obj)
+			     (pair? (cdr p)))
+		    (write obj port)
+		    (write-char #\space port)
+		    (set! added (+ 1 len))
+		    (set! p (cdr p))
+		    (set! obj (car p))) ; pair? cdr p above
 		  
 		  (cond ((or (hash-table? obj)
 			     (let? obj))
@@ -89,15 +93,9 @@
 			(write-char #\) port))
 		      (write (car p) port))))) ; pretty-print? (it's always a symbol)
 	  
-	  (define (any-let-or-hash-table? sequence)
-	    (and (pair? sequence)
-		 (or (let? (car sequence))
-		     (hash-table? (car sequence))
-		     (any-let-or-hash-table? (cdr sequence)))))
-
 	  (let ((writers 
 		 (let ((h (make-hash-table)))
-		   
+
 		   ;; -------- quote
 		   (define (w-quote obj port column)
 		     (if (not (pair? (cdr obj))) ; (quote) or (quote . 1)
@@ -303,11 +301,10 @@
 					    (begin
 					      (write-char #\space port)
 					      (write (cadr lst) port)
-					      (if (and (eq? (cadr lst) '=>)
-						       (pair? (cddr lst)))
-						  (begin
-						    (write-char #\space port)
-						    (write (caddr lst) port))))
+					      (when (and (eq? (cadr lst) '=>)
+							 (pair? (cddr lst)))
+						(write-char #\space port)
+						(write (caddr lst) port)))
 					    (begin
 					      (spaces port (+ column 3))
 					      (stacked-list port (cdr lst) (+ column 3)))))
@@ -324,10 +321,9 @@
 			   (display objstr port)
 			   (begin
 			     (format port "(~A" (car obj))
-			     (if (pair? (cdr obj))
-				 (begin
-				   (write-char #\space port)
-				   (stacked-list port (cdr obj) (+ column *pretty-print-spacing*))))
+			     (when (pair? (cdr obj))
+			       (write-char #\space port)
+			       (stacked-list port (cdr obj) (+ column *pretty-print-spacing*)))
 			     (write-char #\) port)))))
 		   (hash-table-set! h 'map w-map)
 		   (hash-table-set! h 'for-each w-map)
@@ -365,10 +361,9 @@
 		   ;; -------- begin etc
 		   (define (w-begin obj port column)
 		     (format port "(~A" (car obj))
-		     (if (pair? (cdr obj))
-			 (begin
-			   (spaces port (+ column *pretty-print-spacing*))
-			   (stacked-list port (cdr obj) (+ column *pretty-print-spacing*))))
+		     (when (pair? (cdr obj))
+		       (spaces port (+ column *pretty-print-spacing*))
+		       (stacked-list port (cdr obj) (+ column *pretty-print-spacing*)))
 		     (write-char #\) port))
 		   (for-each
 		    (lambda (f)
@@ -401,7 +396,8 @@
 		      (hash-table-set! h f w-lambda))
 		    '(lambda lambda* define* define-macro define-macro* define-bacro define-bacro* with-let
 			     call-with-input-string call-with-input-file call-with-output-file
-			     with-input-from-file with-input-from-string with-output-to-file))
+			     with-input-from-file with-input-from-string with-output-to-file
+			     let-temporarily))
 		   
 		   ;; -------- defmacro defmacro*
 		   (define (w-defmacro obj port column)
@@ -439,7 +435,7 @@
 
 		    ((or (int-vector? obj)
 			 (float-vector? obj))
-		     (if (> (length (vector-dimensions obj)) 1)
+		     (if (> (vector-rank obj) 1)
 			 (write obj port)
 			 (let* ((objstr (object->string obj))
 				(strlen (length objstr)))
@@ -478,9 +474,8 @@
 		     (for-each (lambda (field)
 				 (let ((symstr (object->string (car field))))
 				   (spaces port (+ column 2))
-				   (format port "'(~A . " symstr)
-				   (pretty-print-1 (cdr field) port (+ column 4 (length symstr)))
-				   (write-char #\) port)))
+				   (format port "'~A " symstr)
+				   (pretty-print-1 (cdr field) port (+ column 4 (length symstr)))))
 			       obj)
 		     (write-char #\) port))
 		    
@@ -492,14 +487,14 @@
 			   (display "(inlet" port)
 			   (for-each (lambda (field)
 				       (let ((symstr (symbol->string (car field))))
-					 (spaces port (+ column 5))
+					 (spaces port (+ column 2))
 					 (format port ":~A " symstr)
-					 (pretty-print-1 (cdr field) port (+ column 2 (length symstr)))))
+					 (pretty-print-1 (cdr field) port (+ column 4 (length symstr)))))
 				     obj)
 			   (write-char #\) port))))
 		    
 		    ((vector? obj)
-		     (if (> (length (vector-dimensions obj)) 1)
+		     (if (> (vector-rank obj) 1)
 			 (write obj port)
 			 (let* ((objstr (object->string obj))
 				(strlen (length objstr)))
@@ -665,9 +660,7 @@
 (define (pp obj)
   (call-with-output-string
    (lambda (p)
-     (if (keyword? obj)
-	 (display obj p)
-	 (pretty-print obj p)))))
+     ((if (keyword? obj) display pretty-print) obj p))))
 
 #|
 (define (pretty-print-all)
@@ -688,7 +681,7 @@
     (if (pair? form)
 	(if (and (symbol? (car form))
 		 (macro? (symbol->value (car form))))
-	    (expand ((eval (procedure-source (symbol->value (car form)))) form))
+	    (expand (apply macroexpand (list form)))
 	    (cons (expand (car form))
 		  (expand (cdr form))))
 	form))
@@ -727,5 +720,7 @@
     (pretty-print v))
   (newline)
   (pretty-print v))
+
+;;; :readable in pretty-print? couldn't this be (pretty-print (with-input-from-string (object->string obj :readable) read))?
 
 |#
