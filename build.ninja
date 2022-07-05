@@ -1,7 +1,7 @@
 
 builddir = .build
-cxxflags = -std=c++11 -Wall -Wextra -g -fno-rtti -O2 -fno-exceptions -Wno-sequence-point -DHAVE_COMPLEX_TRIG=0 -DHAVE_COMPLEX_NUMBERS=0 -DDISABLE_DEPRECATED -DWITH_C_LOADER=0
-cflags = -Is7
+cxxflags = -std=c++11 -Wall -Wextra -g -fno-rtti -O3 -fno-exceptions -Wno-sequence-point -DHAVE_COMPLEX_TRIG=0 -DHAVE_COMPLEX_NUMBERS=0 -DDISABLE_DEPRECATED -DWITH_C_LOADER=0
+cflags = -Is7 -O3
 ldflags = -ldl
 #-lGL -lX11 -lXrandr -lpthread -ldl -lXxf86vm -lGLU libfmod.so.11
 
