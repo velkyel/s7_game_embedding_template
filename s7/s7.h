@@ -1,10 +1,10 @@
 #ifndef S7_H
 #define S7_H
 
-#define S7_VERSION "10.0"
-#define S7_DATE "21-Feb-2022"
+#define S7_VERSION "10.4"
+#define S7_DATE "13-Jul-2022"
 #define S7_MAJOR_VERSION 10
-#define S7_MINOR_VERSION 0
+#define S7_MINOR_VERSION 4
 
 #include <stdint.h>           /* for int64_t */
 
@@ -103,6 +103,7 @@ void s7_set_begin_hook(s7_scheme *sc, void (*hook)(s7_scheme *sc, bool *val));
    */
 
 s7_pointer s7_eval(s7_scheme *sc, s7_pointer code, s7_pointer e);    /* (eval code e) -- e is the optional environment */
+s7_pointer s7_eval_with_location(s7_scheme *sc, s7_pointer code, s7_pointer e, const char *caller, const char *file, s7_int line);
 void s7_provide(s7_scheme *sc, const char *feature);                 /* add feature (as a symbol) to the *features* list */
 bool s7_is_provided(s7_scheme *sc, const char *feature);             /* (provided? feature) */
 void s7_repl(s7_scheme *sc);
@@ -233,6 +234,7 @@ s7_pointer s7_make_list(s7_scheme *sc, s7_int len, s7_pointer init);         /* 
 s7_pointer s7_list(s7_scheme *sc, s7_int num_values, ...);                   /* (list ...) */
 s7_pointer s7_list_nl(s7_scheme *sc, s7_int num_values, ...);                /* (list ...) arglist should be NULL terminated (more error checks than s7_list) */
 s7_pointer s7_array_to_list(s7_scheme *sc, s7_int num_values, s7_pointer *array); /* array contents -> list */
+void s7_list_to_array(s7_scheme *sc, s7_pointer list, s7_pointer *array, int32_t len); /* list -> array (intended for old code) */
 s7_pointer s7_reverse(s7_scheme *sc, s7_pointer a);                          /* (reverse a) */
 s7_pointer s7_append(s7_scheme *sc, s7_pointer a, s7_pointer b);             /* (append a b) */
 s7_pointer s7_list_ref(s7_scheme *sc, s7_pointer lst, s7_int num);           /* (list-ref lst num) */
@@ -624,7 +626,7 @@ s7_pointer s7_dilambda_with_environment(s7_scheme *sc, s7_pointer envir,
 					const char *documentation);
 
 s7_pointer s7_values(s7_scheme *sc, s7_pointer args);          /* (values ...) */
-
+bool s7_is_multiple_value(s7_pointer obj);                     /*    is obj the results of (values ...) */
 
 s7_pointer s7_make_iterator(s7_scheme *sc, s7_pointer e);      /* (make-iterator e) */
 bool s7_is_iterator(s7_pointer obj);                           /* (iterator? obj) */
@@ -859,42 +861,18 @@ void s7_slot_set_real_value(s7_scheme *sc, s7_pointer slot, s7_double value);
 
 /* -------------------------------------------------------------------------------- */
 
-  /* these will be deprecated and removed eventually */
-s7_pointer s7_apply_1(s7_scheme *sc, s7_pointer args, s7_pointer (*f1)(s7_pointer a1));
-s7_pointer s7_apply_2(s7_scheme *sc, s7_pointer args, s7_pointer (*f2)(s7_pointer a1, s7_pointer a2));
-s7_pointer s7_apply_3(s7_scheme *sc, s7_pointer args, s7_pointer (*f3)(s7_pointer a1, s7_pointer a2, s7_pointer a3));
-s7_pointer s7_apply_4(s7_scheme *sc, s7_pointer args, s7_pointer (*f4)(s7_pointer a1, s7_pointer a2, s7_pointer a3, s7_pointer a4));
-s7_pointer s7_apply_5(s7_scheme *sc, s7_pointer args, s7_pointer (*f5)(s7_pointer a1, s7_pointer a2, s7_pointer a3, s7_pointer a4, s7_pointer a5));
-s7_pointer s7_apply_6(s7_scheme *sc, s7_pointer args, 
-		      s7_pointer (*f6)(s7_pointer a1, s7_pointer a2, s7_pointer a3, s7_pointer a4,
-				       s7_pointer a5, s7_pointer a6));
-s7_pointer s7_apply_7(s7_scheme *sc, s7_pointer args, 
-		      s7_pointer (*f7)(s7_pointer a1, s7_pointer a2, s7_pointer a3, s7_pointer a4, 
-				       s7_pointer a5, s7_pointer a6, s7_pointer a7));
-s7_pointer s7_apply_8(s7_scheme *sc, s7_pointer args, 
-		      s7_pointer (*f8)(s7_pointer a1, s7_pointer a2, s7_pointer a3, s7_pointer a4, 
-				       s7_pointer a5, s7_pointer a6, s7_pointer a7, s7_pointer a8));
-s7_pointer s7_apply_9(s7_scheme *sc, s7_pointer args, 
-		      s7_pointer (*f9)(s7_pointer a1, s7_pointer a2, s7_pointer a3, s7_pointer a4, 
-				       s7_pointer a5, s7_pointer a6, s7_pointer a7, s7_pointer a8, s7_pointer a9));
+#if (!DISABLE_DEPRECATED)
+typedef s7_int s7_Int;
+typedef s7_double s7_Double;
 
-s7_pointer s7_apply_n_1(s7_scheme *sc, s7_pointer args, s7_pointer (*f1)(s7_pointer a1));
-s7_pointer s7_apply_n_2(s7_scheme *sc, s7_pointer args, s7_pointer (*f2)(s7_pointer a1, s7_pointer a2));
-s7_pointer s7_apply_n_3(s7_scheme *sc, s7_pointer args, s7_pointer (*f3)(s7_pointer a1, s7_pointer a2, s7_pointer a3));
-s7_pointer s7_apply_n_4(s7_scheme *sc, s7_pointer args, s7_pointer (*f4)(s7_pointer a1, s7_pointer a2, s7_pointer a3, s7_pointer a4));
-s7_pointer s7_apply_n_5(s7_scheme *sc, s7_pointer args, s7_pointer (*f5)(s7_pointer a1, s7_pointer a2, s7_pointer a3, s7_pointer a4, s7_pointer a5));
-s7_pointer s7_apply_n_6(s7_scheme *sc, s7_pointer args, 
-		      s7_pointer (*f6)(s7_pointer a1, s7_pointer a2, s7_pointer a3, s7_pointer a4,
-				       s7_pointer a5, s7_pointer a6));
-s7_pointer s7_apply_n_7(s7_scheme *sc, s7_pointer args, 
-		      s7_pointer (*f7)(s7_pointer a1, s7_pointer a2, s7_pointer a3, s7_pointer a4, 
-				       s7_pointer a5, s7_pointer a6, s7_pointer a7));
-s7_pointer s7_apply_n_8(s7_scheme *sc, s7_pointer args, 
-		      s7_pointer (*f8)(s7_pointer a1, s7_pointer a2, s7_pointer a3, s7_pointer a4, 
-				       s7_pointer a5, s7_pointer a6, s7_pointer a7, s7_pointer a8));
-s7_pointer s7_apply_n_9(s7_scheme *sc, s7_pointer args, 
-		      s7_pointer (*f9)(s7_pointer a1, s7_pointer a2, s7_pointer a3, s7_pointer a4, 
-				       s7_pointer a5, s7_pointer a6, s7_pointer a7, s7_pointer a8, s7_pointer a9));
+#define s7_is_object          s7_is_c_object
+#define s7_object_type        s7_c_object_type
+#define s7_object_value       s7_c_object_value
+#define s7_make_object        s7_make_c_object
+#define s7_mark_object        s7_mark
+#define s7_UNSPECIFIED(Sc)    s7_unspecified(Sc)
+#endif
+
 
 #if WITH_GMP
   mpfr_t *s7_big_real(s7_pointer x);
@@ -915,25 +893,16 @@ s7_pointer s7_apply_n_9(s7_scheme *sc, s7_pointer args,
 #endif
 
 
-/* -------------------------------------------------------------------------------- */
-
-#if (!DISABLE_DEPRECATED)
-typedef s7_int s7_Int;
-typedef s7_double s7_Double;
-
-#define s7_is_object          s7_is_c_object
-#define s7_object_type        s7_c_object_type
-#define s7_object_value       s7_c_object_value
-#define s7_make_object        s7_make_c_object
-#define s7_mark_object        s7_mark
-#define s7_UNSPECIFIED(Sc)    s7_unspecified(Sc)
-#endif
-
-
 /* --------------------------------------------------------------------------------
  * 
  *        s7 changes
  * 
+ * --------
+ * 21-Apr:    s7_is_multiple_value.
+ * 11-Apr:    removed s7_apply_*.
+ * 22-Mar:    s7_eval_with_location.
+ * 16-Mar:    s7_list_to_array for the s7_apply_* changes.
+ * 8-Mar-22:  moved s7_apply_* to xen.h if DISABLE_DEPRECATED.
  * --------
  * 24-Nov:    moved s7_p_p_t and friends into s7.h.
  * 23-Sep:    s7_make_byte_vector, s7_is_byte_vector, s7_byte_vector_ref|set|elements.
