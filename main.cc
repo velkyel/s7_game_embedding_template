@@ -41,16 +41,17 @@ static s7_pointer parse_args(s7_scheme* sc, const char* caller, s7_pointer args,
   va_start(va, format);
   const char* p = format;
   s7_pointer retval = 0;
-  int argi = 0;
+  int argi = 1;
   while (*p && retval == 0) {
-    s7_pointer arg = s7_list_ref(sc, args, argi);    // TODO: iterovat optimalneji pomoci x = cdr(x);
+    s7_pointer arg = s7_car(args);
+    args = s7_cdr(args);
     switch (*p) {
     case 'f':
       if (s7_is_number(arg)) {
         f32* tmp = va_arg(va, f32*);
         *tmp = (f32)s7_number_to_real(sc, arg);
       } else {
-        retval = s7_wrong_type_arg_error(sc, caller, argi + 1, arg, "number");
+        retval = s7_wrong_type_arg_error(sc, caller, argi, arg, "number");
       }
       break;
     case 'i':
@@ -58,7 +59,7 @@ static s7_pointer parse_args(s7_scheme* sc, const char* caller, s7_pointer args,
         i32* tmp = va_arg(va, i32*);
         *tmp = (i32)s7_integer(arg);
       } else {
-        retval = s7_wrong_type_arg_error(sc, caller, argi + 1, arg, "integer");
+        retval = s7_wrong_type_arg_error(sc, caller, argi, arg, "integer");
       }
       break;
     case 's':
@@ -66,7 +67,7 @@ static s7_pointer parse_args(s7_scheme* sc, const char* caller, s7_pointer args,
         const char** tmp = va_arg(va, const char**);
         *tmp = s7_string(arg);
       } else {
-        retval = s7_wrong_type_arg_error(sc, caller, argi + 1, arg, "string");
+        retval = s7_wrong_type_arg_error(sc, caller, argi, arg, "string");
       }
       break;
     case 'v':
@@ -74,13 +75,13 @@ static s7_pointer parse_args(s7_scheme* sc, const char* caller, s7_pointer args,
         Vec2** tmp = va_arg(va, Vec2**);
         *tmp = (Vec2*)s7_c_object_value(arg);
       } else {
-        retval = s7_wrong_type_arg_error(sc, caller, argi + 1, arg, "vec2");
+        retval = s7_wrong_type_arg_error(sc, caller, argi, arg, "vec2");
       }
       break;
     default: {
       char buf[128];
       sprintf(buf, "undefined parse_args() token: \'%c\'", *p);
-      retval = s7_wrong_type_arg_error(sc, caller, argi + 1, arg, buf);
+      retval = s7_wrong_type_arg_error(sc, caller, argi, arg, buf);
     } break;
     }
     p++;
