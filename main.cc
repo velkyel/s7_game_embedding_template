@@ -117,9 +117,13 @@ static bool equal_vec2(void* val1, void* val2)
 
 static s7_pointer vec2(s7_scheme* sc, s7_pointer args)
 {
+  f32 x, y;
+  if (auto err = parse_args(sc, "vec2", args, "ff", &x, &y)) {
+    return err;
+  }
   Vec2* o = vec2_pool->allocate();
-  o->x = s7_real(s7_car(args));
-  o->y = s7_real(s7_cadr(args));
+  o->x = x;
+  o->y = y;
   return s7_make_c_object(sc, vec2_type_tag, (void*)o);
 }
 
