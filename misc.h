@@ -283,7 +283,7 @@ public:
     }
   }
 
-  T* allocate()
+  inline T* allocate()
   {
     if (pool.empty()) {
       resize();
@@ -303,7 +303,7 @@ public:
     }
   }
 
-  void free(T* p)
+  inline void free(T* p)
   {
     assert(p);
     pool.push_back(p);

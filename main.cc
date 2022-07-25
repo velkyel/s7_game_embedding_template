@@ -102,7 +102,7 @@ static s7_pointer vec2_to_string(s7_scheme* sc, s7_pointer args)
   return s7_make_string(sc, buf);
 }
 
-static void free_vec2(void* val)
+static inline void free_vec2(void* val)
 {
   if (val) {
     // printf("freeing Vec2\n");
@@ -283,7 +283,7 @@ static void init_s7()
   s7 = s7_init();
   load_script(s7, "write.scm");
 
-  vec2_pool = new PoolAllocator<Vec2>(256);
+  vec2_pool = new PoolAllocator<Vec2>(16384);
 
   vec2_type_tag = s7_make_c_type(s7, "vec2");
   s7_c_type_set_free(s7, vec2_type_tag, free_vec2);
